@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pkl
+*.log
+
+# Virtual environment
+.venv/
+env/
+venv/
+*.egg-info/
+
+# IDEs
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment & credentials
+.env
+
+# Docker
+*.pid
+*.sock
+*.log
+docker-compose.override.yml
+
+# Data / Database
+/data/
+!/data/.gitkeep
+/db/
+!/db/.gitkeep
+
+# PyCharm
+*.iml
+out/
