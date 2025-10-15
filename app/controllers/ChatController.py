@@ -4,22 +4,18 @@ from app.services.OpenAPIService import OpenAIService
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
-client = OpenAIService()
+openai_service = OpenAIService()
+
 
 @router.post("/message")
 async def send_message(request: ChatRequest):
     if not request.message:
         raise HTTPException(status_code=400, detail="Missing 'message'")
-
-    reply = client.chat([
-        {"role": "system", "content": "You are a fun, enthusiastic, creative DnD 5e Dungeon Master"},
-        {"role": "user", "content": request.message},
-        {"role": "assistant", "content": request.assistantMessage},
-        {"role": "user", "content": request.message}
-    ])
+    reply = openai_service.chat(request.message, "user-123")
     return {"reply": reply}
 
+
 @router.post("/start")
-async def send_message():
-    reply = client.startGame()
+async def start_game():
+    reply = openai_service.startGame("user-123")
     return {"reply": reply}
