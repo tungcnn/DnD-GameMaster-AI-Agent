@@ -1,13 +1,14 @@
 import os
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.chat_history import InMemoryChatMessageHistory
-from langchain_core.runnables.history import RunnableWithMessageHistory
-from dotenv import load_dotenv
+from langchain.chains.summarize import load_summarize_chain
 from pydantic import SecretStr
+from langchain_core.documents import Document
+from langgraph.graph import StateGraph, END
+from langgraph.checkpoint.memory import MemorySaver
 
-load_dotenv()
+from app.DTOs.GameState import ChatContent, GameState
 
 
 class OpenAIService:
@@ -27,73 +28,143 @@ class OpenAIService:
         EMBEDDING_MODEL_NAME: str | None = embedding_model or os.getenv("")
         EMBEDDING_API_KEY: str | None = embedding_api_key or os.getenv("")
 
-        try:
-            with open("resource/init-prompt.txt", "r") as file:
-                self.init_script = file.read()
-        except:
-            self.init_script = """Hello world"""
-
-        self.embedding_model = OpenAIEmbeddings(
-            model=(EMBEDDING_MODEL_NAME if EMBEDDING_MODEL_NAME is not None else ""),
-            base_url=BASE_URL,
-            api_key=SecretStr(
-                EMBEDDING_API_KEY if EMBEDDING_API_KEY is not None else ""
-            ),
-        )
-        self.llm_model = ChatOpenAI(
+        # self.__embedding_model = OpenAIEmbeddings(
+        #     model=(EMBEDDING_MODEL_NAME if EMBEDDING_MODEL_NAME is not None else ""),
+        #     base_url=BASE_URL,
+        #     api_key=SecretStr(
+        #         EMBEDDING_API_KEY if EMBEDDING_API_KEY is not None else ""
+        #     ),
+        # )
+        self.__llm_model = ChatOpenAI(
             model=LLM_MODEL_NAME if LLM_MODEL_NAME is not None else "",
             base_url=BASE_URL,
             api_key=SecretStr(LLM_API_KEY if LLM_API_KEY is not None else ""),
             temperature=0.3,
             timeout=300,
         )
-        self.prompt = ChatPromptTemplate.from_messages(
+        base_prompt = ChatPromptTemplate.from_messages(
             [
                 (
                     "system",
-                    "{system_instruction}\n{extra_content}",
+                    "{system_instruction}",
                 ),
-                MessagesPlaceholder("chat_history"),
+                ("assistant", "{extra_content}"),
+                MessagesPlaceholder("history"),
                 ("user", "{input}"),
             ]
         )
-        self.chat_history_for_chain = InMemoryChatMessageHistory()
-        self.base_chain = self.prompt | self.llm_model | StrOutputParser()
-
-        self.chain_with_history = RunnableWithMessageHistory(
-            self.base_chain,  # your LLM / RAG chain
-            lambda _: self.chat_history_for_chain,
-            input_messages_key="input",
-            history_messages_key="chat_history",
+        self.__base_chain = base_prompt | self.__llm_model | StrOutputParser()
+        summarizer_prompt = ChatPromptTemplate.from_template(
+            """
+            Dựa vào đoạn tóm tắt cũ này: {old_summary}
+            Tóm tắt đoạn chat sau đây và nối tiếp vào đoạn tóm tắt trên dựa theo ý cảnh nếu có: {docs}
+            """
         )
+        self.__summarizer_chain = load_summarize_chain(
+            llm=self.__llm_model,
+            chain_type="stuff",
+            prompt=summarizer_prompt,
+            document_variable_name="docs",
+        )
+
+        # ---- Build the graph ----
+        graph = StateGraph(GameState)
+        graph.add_node("ensure_system", self.__ensure_system)
+        graph.add_node("invoke_base_chain", self.__invoke_base_chain)
+        graph.add_node("summarize_chat", self.__summarize_chat)
+
+        # ---- Connect the nodes ----
+        graph.set_entry_point("ensure_system")
+        graph.add_edge("ensure_system", "invoke_base_chain")
+        graph.add_edge("invoke_base_chain", "summarize_chat")
+        graph.add_edge("summarize_chat", END)
+
+        # ---- Compile ----
+        self.game_master_chain = graph.compile(checkpointer=MemorySaver())
 
     # ------------------------------Methods---------------------------------
-    def chat(self, input: str, session_id: str) -> str:
-        extra_content: str = (
-            "Dùng tiếng việt và nối tiếp câu chuyện cùng với lựa chọn trước đó của người chơi"
+    def __ensure_system(self, state: GameState) -> GameState:
+        chat_history: list[ChatContent] = state.get("chat_history") or []
+        for message in chat_history:
+            if getattr(message, "role", message.get("role", "")) == "system":
+                return {}
+        return {
+            "chat_history": [
+                ChatContent(role="system", content=self.__init_system_message())
+            ]
+        }
+
+    def __init_system_message(self) -> str:
+        try:
+            with open("resource/init-prompt.txt", "r") as file:
+                init_script: str = file.read()
+        except:
+            init_script: str = """Hello world"""
+        return init_script
+
+    def __invoke_base_chain(self, state: GameState) -> GameState:
+        chat_history: list[ChatContent] = state.get("chat_history") or []
+        if not chat_history:
+            return {}
+        top_k: int = state.get("top_k_messages") or 0
+        if len(state.get("chat_history") or []) <= 1:
+            response = self.__base_chain.invoke(
+                {
+                    "system_instruction": list(
+                        filter(
+                            lambda message: message["role"] == "system", chat_history
+                        )
+                    )[0],
+                    "extra_content": """Bối cảnh: Lênh đênh trên một con thuyền gỗ, nhóm các bạn đang chuẩn bị cập bến vào hòn đảo Storm Wreck sau một chuyến đi dài.
+                        Phóng mắt ra tầm xa, các bạn có thể thấy xung quanh đảo có rất nhiều xác tàu chìm, tàu đắm, thậm chí là nghe thấy những âm thanh rùng rợn phát ra từ đó.
+                        Cuối cùng, các bạn cập bến ở trong một làng chài nhỏ tên là Saltmarsh, nơi mà những tin đồn về những con rồng và mối đe dọa từ hải tặc đang rình rập.
+                        Làng này nổi tiếng cạn kiệt vì nạn cướp biển ở vùng biển Stormwreck.
+                        Các bạn muốn làm gì?""",
+                    "history": [],
+                    "input": state.get("input") or "",
+                }
+            )
+        else:
+            response = self.__base_chain.invoke(
+                {
+                    "system_instruction": list(
+                        filter(
+                            lambda message: message["role"] == "system", chat_history
+                        )
+                    )[0],
+                    "extra_content": f"Tóm tắt: {state.get("summary") or ""}\nThe following chat content is ",
+                    "history": chat_history[-top_k:] if chat_history else "",
+                    "input": state.get("input"),
+                }
+            )
+        return {
+            "chat_history": chat_history
+            + [
+                ChatContent(role="user", content=state.get("input") or ""),
+                ChatContent(role="assistant", content=response),
+            ]
+        }
+
+    def __summarize_chat(self, state: GameState) -> GameState:
+        chat_history: list[ChatContent] = state.get("chat_history") or []
+        if not chat_history:
+            return {}
+        chat_list: list[str] = list(
+            map(
+                lambda message: f"{message["role"]} - {message["content"]}",
+                chat_history,
+            )
         )
-
-        return self.__invoke_chain(self.init_script, extra_content, input, session_id)
-
-    def startGame(self, session_id: str):
-
-        extra_content: str = """Bối cảnh: Lênh đênh trên một con thuyền gỗ, nhóm các bạn đang chuẩn bị cập bến vào hòn đảo Storm Wreck sau một chuyến đi dài.
-                 Phóng mắt ra tầm xa, các bạn có thể thấy xung quanh đảo có rất nhiều xác tàu chìm, tàu đắm, thậm chí là nghe thấy những âm thanh rùng rợn phát ra từ đó.
-                 Cuối cùng, các bạn cập bến ở trong một làng chài nhỏ tên là Saltmarsh, nơi mà những tin đồn về những con rồng và mối đe dọa từ hải tặc đang rình rập. 
-                 Làng này nổi tiếng cạn kiệt vì nạn cướp biển ở vùng biển Stormwreck. 
-                 Các bạn muốn làm gì?"""
-        return self.__invoke_chain(
-            self.init_script, extra_content, "Start game", session_id
-        )
-
-    def __invoke_chain(
-        self, init_script: str, extra_content: str, input: str, session_id: str
-    ) -> str:
-        return self.chain_with_history.invoke(
+        docs: list[Document] = [Document(page_content=chat) for chat in chat_list]
+        response = self.__summarizer_chain.invoke(
             {
-                "input": input,
-                "extra_content": extra_content,
-                "system_instruction": init_script,
-            },
-            config={"configurable": {"session_id": session_id}},
+                "input_documents": docs[-2:],
+                "old_summary": state.get("summary")
+                or "Chưa có đoạn tóm tắt cũ nào, hãy tóm tắt dựa theo đoạn chat dưới đây",
+            }
         )
+        return {"summary": response["output_text"]}
+
+    def chat(self, game_state: GameState, session_id: str) -> str:
+        cfg = {"configurable": {"thread_id": session_id}}
+        return self.game_master_chain.invoke(game_state, config=cfg)["chat_history"][-1]["content"]  # type: ignore
