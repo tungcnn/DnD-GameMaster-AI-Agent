@@ -44,3 +44,7 @@ Item:
 - Staff
 - Robe
 - 100 gold
+
+Requirement: Use Vietnamese and continue the story along with the player’s previous choices based on:
+- Story summary
+- Most recent chat history

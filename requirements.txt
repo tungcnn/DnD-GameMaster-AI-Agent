@@ -49,6 +49,10 @@ langchain-community==0.3.31
 langchain-core==0.3.79
 langchain-openai==0.3.35
 langchain-text-splitters==0.3.11
+langgraph==0.6.10
+langgraph-checkpoint==2.1.2
+langgraph-prebuilt==0.6.4
+langgraph-sdk==0.2.9
 langsmith==0.4.35
 markdown-it-py==4.0.0
 marshmallow==3.26.1
@@ -68,6 +72,7 @@ opentelemetry-proto==1.37.0
 opentelemetry-sdk==1.37.0
 opentelemetry-semantic-conventions==0.58b0
 orjson==3.11.3
+ormsgpack==1.11.0
 overrides==7.7.0
 packaging==25.0
 posthog==5.4.0
@@ -113,6 +118,7 @@ uvloop==0.21.0
 watchfiles==1.1.1
 websocket-client==1.9.0
 websockets==15.0.1
+xxhash==3.6.0
 yarl==1.22.0
 zipp==3.23.0
 zstandard==0.25.0
