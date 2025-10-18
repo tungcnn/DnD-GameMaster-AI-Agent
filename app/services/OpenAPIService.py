@@ -7,7 +7,7 @@ from pydantic import SecretStr
 from langchain_core.documents import Document
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
-
+from dotenv import load_dotenv
 from app.DTOs.GameState import ChatContent, GameState
 
 
@@ -20,6 +20,7 @@ class OpenAIService:
         embedding_model=None,
         embedding_api_key=None,
     ):
+        load_dotenv()
         BASE_URL: str | None = base_url or os.getenv("AZURE_OPENAI_ENDPOINT")
         LLM_API_KEY: str | None = llm_api_key or os.getenv("AZURE_OPENAI_API_KEY")
         LLM_MODEL_NAME: str | None = llm_model_name or os.getenv(
