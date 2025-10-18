@@ -26,6 +26,7 @@ AZURE_DEPLOYMENT_NAME="GPT-4o-mini"
 AZURE_EMBEDDING_NAME="text-embedding-3-small"
 AZURE_EMBEDDING_API_KEY=""
 ```
+
 ## 🧱 3. Build the Docker Image
 
 From the project root:
@@ -33,25 +34,28 @@ From the project root:
 ```
 docker build -t dnd-gamemaster .
 ```
+
 ## ▶️ 4. Run the Container
 
 Once the image is built, start the container:
+
 ```
-docker run --name dnd-gamemaster -p 8000:8000 my-fastapi-app
+docker run --name dnd-gamemaster -p 8000:8000 dnd-gamemaster
 ```
 
 The app will now be available at:
 👉 http://localhost:8000
 
-## 🔍  5. Verify It’s Running
-* Interactive Docs (Swagger UI): http://localhost:8000/docs
-* OpenAPI JSON: http://localhost:8000/openapi.json
+## 🔍 5. Verify It’s Running
+
+- Interactive Docs (Swagger UI): http://localhost:8000/docs
+- OpenAPI JSON: http://localhost:8000/openapi.json
 
 Or test directly with curl:
-`
-curl http://localhost:8000/
-`
+`curl http://localhost:8000/`
+
 ## 🧰 6. Useful Commands
+
 ```
 # Stop and remove the container
 docker stop my-fastapi-app && docker rm my-fastapi-app
@@ -67,6 +71,7 @@ docker system prune -f
 ```
 
 ## 🧠 7. Troubleshooting
+
 | Problem                                | Cause                                         | Fix                                                                 |
 | -------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------- |
 | `COPY failed: file not found .env`     | `.env` missing or excluded by `.dockerignore` | Create `.env` in project root                                       |
