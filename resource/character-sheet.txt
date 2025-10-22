@@ -1,0 +1,36 @@
+Character sheet 1:
+Name: Steve Rogers
+Race: Human
+Class: Fighter
+Level: 1
+Stats block:
+- Strength: 16
+- Dex: 14
+- Con: 14
+- Int: 8
+- Charisma: 10
+- Wis: 10
+
+Item:
+- Great sword
+- Crossbow
+- Medium armor
+- 100 gold
+
+Character sheet 2:
+Name: Tony Stark
+Race: Human
+Class: Wizard
+Level: 1
+Stats block:
+- Strength: 8
+- Dex: 14
+- Con: 14
+- Int: 16
+- Charisma: 10
+- Wis: 10
+
+Item:
+- Staff
+- Robe
+- 100 gold
