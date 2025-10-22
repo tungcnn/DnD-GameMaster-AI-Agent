@@ -80,7 +80,6 @@ class OpenAIService:
         graph.add_node("ensure_system", self.__ensure_system)
         graph.add_node("invoke_base_chain", self.__invoke_base_chain)
         graph.add_node("summarize_chat", self.__summarize_chat)
-        graph.add_node("init_character_info", self.__init_character_info)
 
         # ---- Connect the nodes ----
         graph.set_entry_point("ensure_system")
