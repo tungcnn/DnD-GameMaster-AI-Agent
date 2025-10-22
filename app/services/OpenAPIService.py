@@ -1,14 +1,17 @@
 import os
+from tkinter import N
 from langchain_openai import ChatOpenAI
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
+from langchain_core.output_parsers.openai_tools import PydanticToolsParser
 from langchain.chains.summarize import load_summarize_chain
 from pydantic import SecretStr
 from langchain_core.documents import Document
 from langgraph.graph import StateGraph, END
-from langgraph.checkpoint.memory import MemorySaver
 from dotenv import load_dotenv
 from app.DTOs.GameState import ChatContent, GameState
+from app.models.PlayerCharacter import PlayerCharacter
+from app.services.SqliteService import sqlite_service
 
 
 class OpenAIService:
@@ -50,29 +53,34 @@ class OpenAIService:
                     "{system_instruction}",
                 ),
                 ("assistant", "{extra_content}"),
-                MessagesPlaceholder("history"),
                 ("user", "{input}"),
             ]
         )
-        self.__base_chain = base_prompt | self.__llm_model | StrOutputParser()
         summarizer_prompt = ChatPromptTemplate.from_template(
             """
             Dựa vào đoạn tóm tắt cũ này: {old_summary}
             Tóm tắt đoạn chat sau đây và nối tiếp vào đoạn tóm tắt trên dựa theo ý cảnh nếu có: {docs}
             """
         )
+
+        # ---- Chain ----
+        self.__base_chain = base_prompt | self.__llm_model | StrOutputParser()
         self.__summarizer_chain = load_summarize_chain(
             llm=self.__llm_model,
             chain_type="stuff",
             prompt=summarizer_prompt,
             document_variable_name="docs",
         )
+        self.__player_extractor_chain = self.__llm_model.bind_tools(
+            [PlayerCharacter]
+        ) | PydanticToolsParser(tools=[PlayerCharacter])
 
         # ---- Build the graph ----
         graph = StateGraph(GameState)
         graph.add_node("ensure_system", self.__ensure_system)
         graph.add_node("invoke_base_chain", self.__invoke_base_chain)
         graph.add_node("summarize_chat", self.__summarize_chat)
+        graph.add_node("init_character_info", self.__init_character_info)
 
         # ---- Connect the nodes ----
         graph.set_entry_point("ensure_system")
@@ -81,18 +89,17 @@ class OpenAIService:
         graph.add_edge("summarize_chat", END)
 
         # ---- Compile ----
-        self.game_master_chain = graph.compile(checkpointer=MemorySaver())
+        self.__game_master_chain = graph.compile(
+            checkpointer=sqlite_service.checkpointer
+        )
 
     # ------------------------------Methods---------------------------------
     def __ensure_system(self, state: GameState) -> GameState:
-        chat_history: list[ChatContent] = state.get("chat_history") or []
-        for message in chat_history:
-            if getattr(message, "role", message.get("role", "")) == "system":
-                return {}
+        if state.get("sys_msg") or None:
+            return {}
         return {
-            "chat_history": [
-                ChatContent(role="system", content=self.__init_system_message())
-            ]
+            "sys_msg": self.__init_system_message(),
+            "players": self.__init_character_info(state),
         }
 
     def __init_system_message(self) -> str:
@@ -105,45 +112,54 @@ class OpenAIService:
 
     def __invoke_base_chain(self, state: GameState) -> GameState:
         chat_history: list[ChatContent] = state.get("chat_history") or []
-        if not chat_history:
-            return {}
-        top_k: int = state.get("top_k_messages") or 0
-        if len(state.get("chat_history") or []) <= 1:
+        sys_msg: str = state.get("sys_msg") or ""
+        if not sys_msg:
+            return {
+                "chat_history": (
+                    chat_history
+                    + [
+                        ChatContent(
+                            role="assistant", content="sys_msg not yet initialized"
+                        )
+                    ]
+                )[-100:]
+            }
+        if not state.get("chat_history"):
             response = self.__base_chain.invoke(
                 {
-                    "system_instruction": list(
-                        filter(
-                            lambda message: message["role"] == "system", chat_history
-                        )
-                    )[0],
-                    "extra_content": """Bối cảnh: Lênh đênh trên một con thuyền gỗ, nhóm các bạn đang chuẩn bị cập bến vào hòn đảo Storm Wreck sau một chuyến đi dài.
+                    "system_instruction": sys_msg,
+                    "extra_content": f"""
+                        Bối cảnh: Lênh đênh trên một con thuyền gỗ, nhóm các bạn đang chuẩn bị cập bến vào hòn đảo Storm Wreck sau một chuyến đi dài.
                         Phóng mắt ra tầm xa, các bạn có thể thấy xung quanh đảo có rất nhiều xác tàu chìm, tàu đắm, thậm chí là nghe thấy những âm thanh rùng rợn phát ra từ đó.
                         Cuối cùng, các bạn cập bến ở trong một làng chài nhỏ tên là Saltmarsh, nơi mà những tin đồn về những con rồng và mối đe dọa từ hải tặc đang rình rập.
                         Làng này nổi tiếng cạn kiệt vì nạn cướp biển ở vùng biển Stormwreck.
-                        Các bạn muốn làm gì?""",
-                    "history": [],
+                        Các bạn muốn làm gì?
+
+                        Người chơi hiện tại: {state.get("players") if state.get("players") else "Non"}
+                    """,
                     "input": state.get("input") or "",
                 }
             )
         else:
             response = self.__base_chain.invoke(
                 {
-                    "system_instruction": list(
-                        filter(
-                            lambda message: message["role"] == "system", chat_history
-                        )
-                    )[0],
-                    "extra_content": f"Tóm tắt: {state.get("summary") or ""}\nThe following chat content is ",
-                    "history": chat_history[-top_k:] if chat_history else "",
+                    "system_instruction": sys_msg,
+                    "extra_content": f"""
+                        {state.get("summary") or "No available summary"}
+
+                        Người chơi hiện tại: {state.get("players") if state.get("players") else "Non"}
+                    """,
                     "input": state.get("input"),
                 }
             )
         return {
-            "chat_history": chat_history
-            + [
-                ChatContent(role="user", content=state.get("input") or ""),
-                ChatContent(role="assistant", content=response),
-            ]
+            "chat_history": (
+                chat_history
+                + [
+                    ChatContent(role="user", content=state.get("input") or ""),
+                    ChatContent(role="assistant", content=response),
+                ]
+            )[-100:]
         }
 
     def __summarize_chat(self, state: GameState) -> GameState:
@@ -166,6 +182,22 @@ class OpenAIService:
         )
         return {"summary": response["output_text"]}
 
-    def chat(self, game_state: GameState, session_id: str) -> str:
+    def __init_character_info(self, state: GameState) -> list[PlayerCharacter]:
+        players: list[PlayerCharacter] = state.get("players") or []
+        if not players:
+            try:
+                with open("resource/character-sheet.txt", "r") as file:
+                    character_data: str = file.read()
+                    players: list[PlayerCharacter] = (
+                        self.__player_extractor_chain.invoke(character_data)
+                    )
+            except:
+                character_data: str = """Default character sheet:"""
+        return players
+
+    def chat(self, input_msg: str, session_id: str) -> str:
         cfg = {"configurable": {"thread_id": session_id}}
-        return self.game_master_chain.invoke(game_state, config=cfg)["chat_history"][-1]["content"]  # type: ignore
+        return self.__game_master_chain.invoke(GameState(input=input_msg), config=cfg)["chat_history"][-1]["content"]  # type: ignore
+
+
+openai_service = OpenAIService()

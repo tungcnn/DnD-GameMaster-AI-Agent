@@ -1,4 +1,6 @@
-from typing import Any, TypedDict
+from typing import TypedDict
+
+from app.models.PlayerCharacter import PlayerCharacter
 
 
 class ChatContent(TypedDict):
@@ -8,6 +10,7 @@ class ChatContent(TypedDict):
 
 class GameState(TypedDict, total=False):
     chat_history: list[ChatContent]
-    top_k_messages: int
     summary: str
     input: str
+    players: list[PlayerCharacter]
+    sys_msg: str
