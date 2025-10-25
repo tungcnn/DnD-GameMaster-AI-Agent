@@ -27,26 +27,18 @@ AZURE_EMBEDDING_NAME="text-embedding-3-small"
 AZURE_EMBEDDING_API_KEY=""
 ```
 
-## 🧱 3. Build the Docker Image
+## 🧱 3. Run source with docker
 
 From the project root:
 
 ```
-docker build -t dnd-gamemaster .
-```
-
-## ▶️ 4. Run the Container
-
-Once the image is built, start the container:
-
-```
-docker run --name dnd-gamemaster -p 8000:8000 dnd-gamemaster
+docker compose up
 ```
 
 The app will now be available at:
 👉 http://localhost:8000
 
-## 🔍 5. Verify It’s Running
+## 🔍 4. Verify It’s Running
 
 - Interactive Docs (Swagger UI): http://localhost:8000/docs
 - OpenAPI JSON: http://localhost:8000/openapi.json
@@ -54,7 +46,7 @@ The app will now be available at:
 Or test directly with curl:
 `curl http://localhost:8000/`
 
-## 🧰 6. Useful Commands
+## 🧰 5. Useful Commands
 
 ```
 # Stop and remove the container
@@ -70,7 +62,7 @@ docker logs -f my-fastapi-app
 docker system prune -f
 ```
 
-## 🧠 7. Troubleshooting
+## 🧠 6. Troubleshooting
 
 | Problem                                | Cause                                         | Fix                                                                 |
 | -------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------- |
@@ -78,7 +70,7 @@ docker system prune -f
 | Port 8000 already in use               | Another process using it                      | Run with a different port: `docker run -p 8080:8000 my-fastapi-app` |
 | App can’t access environment variables | `.env` missing at build time                  | Ensure `.env` exists before running `docker build`                  |
 
-## 🧪 8. Run Locally (Without Docker, optional)
+## 🧪 7. Run Locally (Without Docker, optional)
 
 If you want to run directly on your host:
 

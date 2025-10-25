@@ -1,0 +1,22 @@
+services:
+  dnd-gamemaster:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: dnd-gamemaster:latest
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    depends_on: []
+
+# Notes:
+# - The compose file expects a local .env file in the project root (see README.md).
+# - Build the image with: docker compose build
+# - Start with: docker compose up
