@@ -1,0 +1,17 @@
+version: "3.9"
+
+services:
+  api:
+    build: .
+    container_name: dnd-game-master
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - ./resource:/resource
+    env_file:
+      - .env
+    environment:
+      # explicit runtime vars (these can override .env if needed)
+      SQLITE_PATH: /resource/checkpoint.db
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
