@@ -1,6 +1,5 @@
 import os
-from tkinter import N
-from langchain_openai import ChatOpenAI
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.output_parsers.openai_tools import PydanticToolsParser
@@ -9,6 +8,7 @@ from pydantic import SecretStr
 from langchain_core.documents import Document
 from langgraph.graph import StateGraph, END
 from dotenv import load_dotenv
+from typing import List
 from app.DTOs.GameState import ChatContent, GameState
 from app.models.PlayerCharacter import PlayerCharacter
 from app.services.SqliteService import sqlite_service
@@ -29,16 +29,17 @@ class OpenAIService:
         LLM_MODEL_NAME: str | None = llm_model_name or os.getenv(
             "AZURE_DEPLOYMENT_NAME"
         )
-        EMBEDDING_MODEL_NAME: str | None = embedding_model or os.getenv("")
-        EMBEDDING_API_KEY: str | None = embedding_api_key or os.getenv("")
+        EMBEDDING_MODEL_NAME: str | None = embedding_model or os.getenv("AZURE_EMBEDDING_NAME")
+        EMBEDDING_API_KEY: str | None = embedding_api_key or os.getenv("AZURE_EMBEDDING_API_KEY")
 
-        # self.__embedding_model = OpenAIEmbeddings(
-        #     model=(EMBEDDING_MODEL_NAME if EMBEDDING_MODEL_NAME is not None else ""),
-        #     base_url=BASE_URL,
-        #     api_key=SecretStr(
-        #         EMBEDDING_API_KEY if EMBEDDING_API_KEY is not None else ""
-        #     ),
-        # )
+        # Initialize embedding model for semantic search
+        self.__embedding_model = OpenAIEmbeddings(
+            model=(EMBEDDING_MODEL_NAME if EMBEDDING_MODEL_NAME is not None else "text-embedding-3-small"),
+            base_url=BASE_URL,
+            api_key=SecretStr(
+                EMBEDDING_API_KEY if EMBEDDING_API_KEY is not None else LLM_API_KEY if LLM_API_KEY is not None else ""
+            ),
+        )
         self.__llm_model = ChatOpenAI(
             model=LLM_MODEL_NAME if LLM_MODEL_NAME is not None else "",
             base_url=BASE_URL,
@@ -193,6 +194,23 @@ class OpenAIService:
             except:
                 character_data: str = """Default character sheet:"""
         return players
+
+    def generate_embedding(self, text: str) -> List[float]:
+        """
+        Generate embedding for a given text using OpenAI.
+        
+        Args:
+            text: Text to generate embedding for
+            
+        Returns:
+            List of floats representing the embedding vector
+        """
+        try:
+            embedding = self.__embedding_model.embed_query(text)
+            return embedding
+        except Exception as e:
+            print(f"Error generating embedding: {e}")
+            raise
 
     def chat(self, input_msg: str, session_id: str) -> str:
         cfg = {"configurable": {"thread_id": session_id}}
