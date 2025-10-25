@@ -1,9 +1,32 @@
+from contextlib import asynccontextmanager
+from sqlite3 import OperationalError
+
+import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import asyncio
 from app.controllers import ChatController
-import uvicorn
+from app.services.OpenAPIService import openai_service
+from app.services.SqliteService import sqlite_service
 
-app = FastAPI(title="DnD AI Dungeon Master")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # --- Startup ---
+    try:
+        await sqlite_service.init()
+        openai_service.init_openai_service()
+        print("Game master initialized")
+    except OperationalError as e:
+        print(e)
+
+    yield  # <--- App runs here
+
+    # --- Shutdown ---
+    print("🛑 App closed")
+
+
+app = FastAPI(title="DnD AI Dungeon Master", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
