@@ -33,7 +33,7 @@ class SQLiteIngestion:
         """
         if db_path is None:
             project_root = Path(__file__).parent.parent
-            db_path = project_root / "resource" / "db" / "checkpoints.db"
+            db_path = project_root / "resource" / "db" / "checkpoint.db"
         
         self.db_path = str(db_path)
         self._ensure_db_directory()

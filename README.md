@@ -20,9 +20,6 @@ Create a file named `.env` in the **project root** (same directory as your `Dock
 —or simply copy from `.env.sample`—then fill in your credentials:
 
 ```env
-# Google Drive SRD Folder (downloads all required files)
-GDRIVE_SRD_FOLDER=https://drive.google.com/drive/folders/1NVwuJiAn8PhF83SDwrfjH6r_hVFPGsnN?usp=sharing
-
 # OpenAI Configuration
 AZURE_LLM_NAME=gpt-4o
 AZURE_EMBEDDING_NAME=text-embedding-3-small
@@ -42,7 +39,6 @@ docker build -t dnd-gamemaster .
 ## 📥 4. Run Data Ingestion (First Time Setup)
 
 Before starting the application, run the ingestion script to:
-- Download SRD files from Google Drive
 - Populate SQLite database with spells and classes
 - Upload embeddings to ChromaDB
 
@@ -59,10 +55,9 @@ python ingestion/ingestion_script.py all
 ```
 
 This step:
-- ✅ Downloads all SRD files from Google Drive
-- ✅ Ingests 319 spells into SQLite
-- ✅ Ingests 12 classes into SQLite
-- ✅ Uploads embeddings to ChromaDB for semantic search
+- ✅ Ingests 319 spells from CSV into SQLite
+- ✅ Ingests 12 classes from CSV into SQLite
+- ✅ Uploads pre-generated embeddings to ChromaDB for semantic search
 
 **Note**: This only needs to be run once (or when you want to refresh the data).
 
@@ -119,7 +114,7 @@ docker system prune -f
 | `COPY failed: file not found .env`     | `.env` missing or excluded by `.dockerignore` | Create `.env` in project root                                           |
 | Port 8000 already in use               | Another process using it                      | Run with a different port: `docker run -p 8080:8000 dnd-gamemaster`    |
 | App can't access environment variables | `.env` missing at build time                  | Ensure `.env` exists before running `docker build`                      |
-| No SRD files found                     | Google Drive not configured or download failed| Check `GDRIVE_SRD_FOLDER` in `.env` and run ingestion script            |
+| No SRD files found                     | SRD files missing from repository             | Ensure `resource/srd/` folder contains all CSV and data files           |
 | ChromaDB collection empty              | Ingestion not run                             | Run: `docker-compose run --rm api python ingestion/ingestion_script.py all` |
 
 ## 🧪 9. Run Locally (Without Docker, optional)
