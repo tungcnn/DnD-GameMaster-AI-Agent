@@ -11,7 +11,7 @@ router = APIRouter(prefix="/chat", tags=["Chat"])
 async def send_message(request: ChatRequest):
     if not request.message:
         raise HTTPException(status_code=400, detail="Missing 'message'")
-    reply = openai_service.chat(request.message, "user-123")
+    reply = await openai_service.chat(request.message, "user-123")
 
     # Send to server and received
     uri = "ws://localhost:8000/ws"
