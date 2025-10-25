@@ -44,15 +44,15 @@ app.include_router(ChatController.router, prefix="/api/v1")
 def root():
     return {"message": "DnD AI GM is running"}
 
-connected_clients = set()
+connected_clients = []
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     websocket_id = hex(id(websocket))
-    connected_clients.add(websocket)
+    connected_clients.append(websocket)
     print(f"Client connected: {(connected_clients)}")
 
-    # Khi client kết nối bắn list các client đang conected để FE load
+    # Khi client kết nối bắn list các client đang connected để FE load
     for client in connected_clients:
         try:
             await client.send_text(f"{connected_clients}")
@@ -65,47 +65,50 @@ async def websocket_endpoint(websocket: WebSocket):
             data_text = await websocket.receive_text()
             print(f"Server received: {data_text}")
 
-            # Convert JSON dạng {"user": "string", "type": 0, "message": "string"}
+            # Convert JSON dạng {"user": "string", "type": "READY"/"CHAT", "message": "string"}
             try:
                 data = json.loads(data_text)
             except Exception as e:
                 # Gửi thông báo lỗi về cho client vừa gửi
-                error_msg = f"JSON parse error: {str(e)}. Message must be like: {{'user': str, 'type': str, 'message': str}} (type: READY/CHAT)"
+                error_msg = f"JSON parse error: {str(e)}. Message must be like: {{'id': str, 'user': str, 'type': str, 'message': str}} (type: READY/CHAT)"
                 try:
                     await websocket.send_text(error_msg)
                 except Exception as err:
                     print("Send error to client:", err)
                 continue  # bỏ qua broadcast
 
-            user = data.get("user", "Unknown")
-            msg_type = data.get("type", "Unknown")
-            message = data.get("message", "")
+            json_user = data.get("user", "Unknown")
+            json_type = data.get("type", "Unknown")
+            json_message = data.get("message", "")
 
             # Xử lý theo từng type (switch-case dạng Python)
-            if msg_type == "READY":  # ready
-                send_msg = f"[{user}] is ready: {message}"
-            elif msg_type == "CHAT":  # chat
-                send_msg = f"[{user}] says: {message}"
+            if json_type == "READY":  # ready
+                send_msg = f"[{json_user}] is ready: {json_message}"
+            elif json_type == "CHAT":  # chat
+                send_msg = f"[{json_user}] says: {json_message}"
             else:
-                send_msg = f"[{user}] sent unknown type ({msg_type}): {message}"
+                send_msg = f"[{json_user}] sent unknown type ({json_type}): {json_message}"
 
             # Broadcast cho tất cả client đang kết nối (chỉ gửi message này 1 lần)
-            closed_clients = set()
+            closed_clients = []
             for client in connected_clients:
                 try:
                     await client.send_text(f"Broadcast: {send_msg}")
                     print("Sent message: '", send_msg ,"' to client:", client)
                 except Exception as e:
                     print("Send error:", e)
-                    closed_clients.add(client)
+                    closed_clients.append(client)
 
             # Loại các client đã disconnect khỏi danh sách
-            connected_clients.difference_update(closed_clients)
+            for c in closed_clients:
+                if c in connected_clients:
+                    connected_clients.remove(c)
             print(f"Server broadcasted: {send_msg}")
 
     except WebSocketDisconnect:
         print("Client disconnected")
-        connected_clients.remove(websocket)
+        if websocket in connected_clients:
+            connected_clients.remove(websocket)
         print(f"Client removed. Connected_clients: {(connected_clients)}")
 
     except Exception as e:
