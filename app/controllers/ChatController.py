@@ -1,8 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from app.models.ChatRequest import ChatRequest
 from app.services.OpenAPIService import openai_service
-import asyncio
-import websockets
+from app.services.WebsocketService import ws_service
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
@@ -14,13 +13,7 @@ async def send_message(request: ChatRequest):
     reply = await openai_service.chat(request.message, "user-123")
 
     # Send to server and received
-    uri = "ws://localhost:8000/ws"
-    async with websockets.connect(uri) as websocket:
-        await websocket.send(reply)
-        print(f"Client sent: {reply}")
-        response = await websocket.recv()
-        print("Client received:", response)
-        await asyncio.sleep(3)  # keep connect for test
+    await ws_service.send_message(reply)
         
     return {"reply": reply}
 
@@ -30,12 +23,6 @@ async def start_game():
     reply = await openai_service.chat("Bắt đầu trò chơi", "user-123")
 
     # Send to server and received
-    uri = "ws://localhost:8000/ws"
-    async with websockets.connect(uri) as websocket:
-        await websocket.send(reply)
-        print(f"Client sent: {reply}")
-        response = await websocket.recv()
-        print("Client received:", response)
-        await asyncio.sleep(3)  # keep connect for test
+    await ws_service.send_message(reply)
 
     return {"reply": reply}
