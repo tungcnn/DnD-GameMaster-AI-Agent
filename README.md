@@ -136,8 +136,8 @@ pip install --upgrade pip
 pip install -r requirements.txt
 
 # Run ingestion first
+```
 python ingestion/ingestion_script.py all
 
 # Then start the server
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-```
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir app
