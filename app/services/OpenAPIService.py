@@ -25,8 +25,8 @@ class OpenAIService:
             llm_api_key=None,
             base_url=None,
             llm_model_name=None,
-            # embedding_model=None,
-            # embedding_api_key=None,
+            embedding_model=None,
+            embedding_api_key=None,
     ):
         load_dotenv()
         BASE_URL: str | None = base_url or os.getenv("AZURE_OPENAI_ENDPOINT")
@@ -34,16 +34,16 @@ class OpenAIService:
         LLM_MODEL_NAME: str | None = llm_model_name or os.getenv(
             "AZURE_DEPLOYMENT_NAME"
         )
-        # EMBEDDING_MODEL_NAME: str | None = embedding_model or os.getenv("")
-        # EMBEDDING_API_KEY: str | None = embedding_api_key or os.getenv("")
+        EMBEDDING_MODEL_NAME: str | None = embedding_model or os.getenv("AZURE_EMBEDDING_NAME")
+        EMBEDDING_API_KEY: str | None = embedding_api_key or os.getenv("AZURE_EMBEDDING_API_KEY")
 
-        # self.embedding_model = OpenAIEmbeddings(
-        #     model=(EMBEDDING_MODEL_NAME if EMBEDDING_MODEL_NAME is not None else ""),
-        #     base_url=BASE_URL,
-        #     api_key=SecretStr(
-        #         EMBEDDING_API_KEY if EMBEDDING_API_KEY is not None else ""
-        #     ),
-        # )
+        self.embedding_model = OpenAIEmbeddings(
+            model=(EMBEDDING_MODEL_NAME if EMBEDDING_MODEL_NAME is not None else ""),
+            base_url=BASE_URL,
+            api_key=SecretStr(
+                EMBEDDING_API_KEY if EMBEDDING_API_KEY is not None else ""
+            ),
+        )
         self.llm_model = ChatOpenAI(
             model=LLM_MODEL_NAME if LLM_MODEL_NAME is not None else "",
             base_url=BASE_URL,
@@ -203,19 +203,6 @@ class OpenAIService:
         result = await self.game_master_chain.ainvoke(GameState(input=input_msg), config=cfg)  # type: ignore
         return result["chat_history"][-1]["content"]
 
-    def __init_character_info(self, state: GameState) -> list[PlayerCharacter]:
-        players: list[PlayerCharacter] = state.get("players") or []
-        if not players:
-            try:
-                with open("resource/character-sheet.txt", "r") as file:
-                    character_data: str = file.read()
-                    players: list[PlayerCharacter] = (
-                        self.__player_extractor_chain.invoke(character_data)
-                    )
-            except:
-                character_data: str = """Default character sheet:"""
-        return players
-
     def generate_embedding(self, text: str) -> List[float]:
         """
         Generate embedding for a given text using OpenAI.
@@ -227,7 +214,7 @@ class OpenAIService:
             List of floats representing the embedding vector
         """
         try:
-            embedding = self.__embedding_model.embed_query(text)
+            embedding = self.embedding_model.embed_query(text)
             return embedding
         except Exception as e:
             print(f"Error generating embedding: {e}")
