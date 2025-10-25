@@ -38,3 +38,5 @@ dist/
 *.cache
 .cache/
 resource/db/
+resource/srd/
+resource/chroma_db/
