@@ -3,6 +3,8 @@ import aiofiles
 from dotenv import load_dotenv
 from langchain_classic.chains.summarize import load_summarize_chain
 from langchain_core.documents import Document
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.output_parsers.openai_tools import PydanticToolsParser
 from langchain_core.prompts import ChatPromptTemplate
@@ -10,6 +12,8 @@ from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph, END
 from pydantic import SecretStr
 
+from dotenv import load_dotenv
+from typing import List
 from app.DTOs.GameState import ChatContent, GameState
 from app.models.PlayerCharacter import PlayerCharacter
 from app.services.SqliteService import sqlite_service
@@ -199,5 +203,34 @@ class OpenAIService:
         result = await self.game_master_chain.ainvoke(GameState(input=input_msg), config=cfg)  # type: ignore
         return result["chat_history"][-1]["content"]
 
+    def __init_character_info(self, state: GameState) -> list[PlayerCharacter]:
+        players: list[PlayerCharacter] = state.get("players") or []
+        if not players:
+            try:
+                with open("resource/character-sheet.txt", "r") as file:
+                    character_data: str = file.read()
+                    players: list[PlayerCharacter] = (
+                        self.__player_extractor_chain.invoke(character_data)
+                    )
+            except:
+                character_data: str = """Default character sheet:"""
+        return players
+
+    def generate_embedding(self, text: str) -> List[float]:
+        """
+        Generate embedding for a given text using OpenAI.
+
+        Args:
+            text: Text to generate embedding for
+
+        Returns:
+            List of floats representing the embedding vector
+        """
+        try:
+            embedding = self.__embedding_model.embed_query(text)
+            return embedding
+        except Exception as e:
+            print(f"Error generating embedding: {e}")
+            raise
 
 openai_service = OpenAIService()

@@ -7,6 +7,8 @@ COPY requirements.txt .
 RUN pip install --upgrade pip && pip install -r requirements.txt
 
 COPY ./app ./app
+COPY ./resource ./resource
+COPY ./ingestion ./ingestion
 COPY .env .
 
 EXPOSE 8000
