@@ -1,5 +1,4 @@
 from fastapi import APIRouter, HTTPException
-from app.DTOs.GameState import GameState
 from app.models.ChatRequest import ChatRequest
 from app.services.OpenAPIService import openai_service
 import asyncio
@@ -24,7 +23,7 @@ async def send_message(request: ChatRequest):
 
 @router.post("/start")
 async def start_game():
-    #reply = openai_service.chat("Bắt đầu trò chơi", "user-123")
+    #reply = await openai_service.chat("Bắt đầu trò chơi", "user-123")
     reply = "Bắt đầu trò chơi"
 
     # Send to server
