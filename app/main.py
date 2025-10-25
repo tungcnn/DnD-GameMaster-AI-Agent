@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from sqlite3 import OperationalError
 
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 from app.controllers import ChatController
@@ -43,16 +43,19 @@ app.include_router(ChatController.router, prefix="/api/v1")
 def root():
     return {"message": "DnD AI GM is running"}
 
-async def chatbot(websocket, path):
-    async for message in websocket:
-        print(f"Received: {message}")
-        await websocket.send(f"Sent: {message}")
-
-async def main():
-    async with websockets.serve(chatbot, "localhost", 8765):
-        await asyncio.Future()  # Run forever
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    try:
+        while True:
+            data = await websocket.receive_text()
+            print(f"Server received: {data}")
+            await websocket.send_text(f"Message: {data}")
+            print(f"Server sent: {data}")
+    except WebSocketDisconnect:
+        print("Client disconnected")
+    except Exception as e:
+        print("Other error:", e)
 
 if __name__ == "__main__":
-    print("Starting WebSocket server on ws://localhost:8765...")
-    asyncio.run(main())
     uvicorn.run(app, host="0.0.0.0", port=8000)
