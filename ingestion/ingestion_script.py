@@ -12,30 +12,10 @@ sys.path.append(str(Path(__file__).parent.parent))
 from ingestion.sqlite_ingestion import SQLiteIngestion
 from ingestion.chroma_ingestion import ChromaIngestion
 from ingestion.ingestion_helper import print_separator
-from ingestion.gdrive_downloader import download_srd_files
 
 # Default CSV paths (adjust for Docker or local environment)
 SPELLS_CSV_PATH = "/app/resource/srd/spells.csv"
 CLASSES_CSV_PATH = "/app/resource/srd/classes.csv"
-
-
-def ensure_srd_files():
-    """
-    Ensure SRD files are available by downloading from Google Drive if configured.
-    """
-    print_separator("Checking SRD Files")
-    
-    try:
-        success = download_srd_files(force=False)
-        if success:
-            print("✅ All SRD files are ready\n")
-        else:
-            print("⚠️  Some files may be missing. Proceeding with available files...\n")
-        return success
-    except Exception as e:
-        print(f"⚠️  Error checking SRD files: {e}")
-        print("Proceeding with available local files...\n")
-        return False
 
 
 def ingest_spells_to_sqlite(csv_path: str = SPELLS_CSV_PATH):
@@ -167,9 +147,6 @@ def run_all_ingestion():
     """
     print_separator("Complete Ingestion Workflow", "=")
     
-    # Step 0: Ensure SRD files are downloaded
-    ensure_srd_files()
-    
     success_count = 0
     total_steps = 3
     
@@ -234,10 +211,6 @@ Examples:
   
   # Upload with custom files
   python ingestion_script.py upload --batch results.jsonl --metadata meta.json
-
-Google Drive Integration:
-  Files are automatically downloaded from Google Drive if configured.
-  See GDRIVE_SETUP.md for configuration instructions.
     """)
 
 
@@ -255,22 +228,16 @@ if __name__ == "__main__":
             run_all_ingestion()
         
         elif command == "ingest-spells":
-            # Ensure files are available
-            ensure_srd_files()
             # Ingest spells CSV to SQLite
             csv_path = sys.argv[2] if len(sys.argv) > 2 else SPELLS_CSV_PATH
             ingest_spells_to_sqlite(csv_path)
         
         elif command == "ingest-classes":
-            # Ensure files are available
-            ensure_srd_files()
             # Ingest classes CSV to SQLite
             csv_path = sys.argv[2] if len(sys.argv) > 2 else CLASSES_CSV_PATH
             ingest_classes_to_sqlite(csv_path)
         
         elif command == "upload":
-            # Ensure files are available
-            ensure_srd_files()
             # Upload batch results to ChromaDB
             batch_file = None
             metadata_file = None
