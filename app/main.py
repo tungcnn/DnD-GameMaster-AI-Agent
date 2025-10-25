@@ -8,6 +8,7 @@ import asyncio
 from app.controllers import ChatController
 from app.services.OpenAPIService import openai_service
 from app.services.SqliteService import sqlite_service
+from app.services.AzureSpeechService import speech_service
 
 
 @asynccontextmanager
@@ -16,7 +17,8 @@ async def lifespan(app: FastAPI):
     try:
         await sqlite_service.init()
         openai_service.init_openai_service()
-        print("Game master initialized")
+        speech_service.init_speech_service()
+        print("✅ Game master initialized")
     except OperationalError as e:
         print(e)
 

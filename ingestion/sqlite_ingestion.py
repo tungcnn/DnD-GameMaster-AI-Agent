@@ -32,7 +32,7 @@ class SQLiteIngestion:
             db_path: Path to SQLite database file
         """
         if db_path is None:
-            project_root = Path(__file__).parent.parent
+            project_root = Path(__file__).parent.parent.parent
             db_path = project_root / "resource" / "db" / "checkpoint.db"
         
         self.db_path = str(db_path)
