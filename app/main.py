@@ -64,7 +64,7 @@ async def websocket_endpoint(websocket: WebSocket):
     # Khi client kết nối, gửi danh sách các client đang connected cho FE
     for client in connected_clients:
         try:
-            await client["websocket"].send_text(f"{connected_clients}")
+            await client["websocket"].send_text(f"{json.dumps(remove_websocket_list_dic(connected_clients))}")
         except Exception as e:
             print("Send error:", e)
 
@@ -79,7 +79,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 data = json.loads(data_text)
             except Exception as e:
                 # Gửi thông báo lỗi về cho client vừa gửi
-                error_msg = f"JSON parse error: {str(e)}. Message must be like: {{'user': str, 'type': str, 'message': str}} (type: JOIN/CHAT)"
+                error_msg = f"JSON parse error: {str(e)}. Message must be like: {{\"user\": str, \"type\": str, \"message\": str}} (type: JOIN/CHAT)"
                 try:
                     await websocket.send_text(error_msg)
                 except Exception as err:
@@ -108,7 +108,7 @@ async def websocket_endpoint(websocket: WebSocket):
             if all_have_message:
                 for client in connected_clients:
                     try:
-                        await client["websocket"].send_text(f"{client_obj}")
+                        await client["websocket"].send_text(f"{json.dumps(remove_websocket_dic(client_obj))}")
                         print("Sent message: '", client_obj ,"' to client:", websocket_id)
                     except Exception as e:
                         print("Send error:", e)
@@ -129,7 +129,7 @@ async def websocket_endpoint(websocket: WebSocket):
                             "message": reply  # respone OPEN API
                         }
 
-                        await client["websocket"].send_text(f"{game_master_respone}")
+                        await client["websocket"].send_text(f"{json.dumps(remove_websocket_dic(game_master_respone))}")
                         client["message"] = ""
                         print("Sent message: '", game_master_respone ,"' to client:", websocket_id)
                     except Exception as e:
@@ -138,7 +138,7 @@ async def websocket_endpoint(websocket: WebSocket):
             else:
                 for client in connected_clients:
                     try:
-                        await client["websocket"].send_text(f"{client_obj}")
+                        await client["websocket"].send_text(f"{json.dumps(remove_websocket_dic(client_obj))}")
                         print("Sent message: '", client_obj ,"' to client:", websocket_id)
                     except Exception as e:
                         print("Send error:", e)
@@ -162,7 +162,7 @@ async def websocket_endpoint(websocket: WebSocket):
             if client["websocket"] == websocket:
                 connected_clients.remove(client)
             else:
-                await client["websocket"].send_text(f"Disconnected: {disconnected_clients}")
+                await client["websocket"].send_text(f"Disconnected: {json.dumps(remove_websocket_dic(disconnected_clients))}")
             print(f"Client removed. Connected_clients: {(connected_clients)}")
 
     except Exception as e:
@@ -171,6 +171,18 @@ async def websocket_endpoint(websocket: WebSocket):
             if client["websocket"] == websocket:
                 connected_clients.remove(client)
             print(f"Client removed. Connected_clients: {(connected_clients)}")
+
+def remove_websocket_list_dic(data_list):
+    filtered_data = []
+    for d in data_list:
+        filtered = remove_websocket_dic(d)
+        filtered_data.append(filtered)
+    return filtered_data
+
+def remove_websocket_dic(data):
+    filtered_data = {k: v for k, v in data.items() if k != 'websocket'}
+    return filtered_data
+    
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
