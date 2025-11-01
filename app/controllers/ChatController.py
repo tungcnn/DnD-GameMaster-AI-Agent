@@ -12,7 +12,7 @@ async def send_message(request: ChatRequest):
         raise HTTPException(status_code=400, detail="Missing 'message'")
     reply = await openai_service.chat(request.message, "user-123")
 
-    # Send to server and received
+    # Send message to server
     await ws_service.send_message(reply)
         
     return {"reply": reply}
@@ -22,7 +22,7 @@ async def send_message(request: ChatRequest):
 async def start_game():
     reply = await openai_service.chat("Bắt đầu trò chơi", "user-123")
 
-    # Send to server and received
+    # Send message to server
     await ws_service.send_message(reply)
 
     return {"reply": reply}
