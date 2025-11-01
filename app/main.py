@@ -61,13 +61,6 @@ async def websocket_endpoint(websocket: WebSocket):
     connected_clients.append(client_obj)
     print(f"Client connected: {websocket_id}. Total: {len(connected_clients)}")
 
-    # Khi client kết nối, gửi danh sách các client đang connected cho FE
-    for client in connected_clients:
-        try:
-            await client["websocket"].send_text(f"{json.dumps(remove_websocket_list_dic(connected_clients))}")
-        except Exception as e:
-            print("Send error:", e)
-
     try:
         while True:
             # Chỉ gửi đúng 1 lần mỗi khi nhận được message
@@ -98,6 +91,21 @@ async def websocket_endpoint(websocket: WebSocket):
                     client["type"] = json_type
                     if json_type == "JOIN":
                         client["message"] = ""
+
+                        status = {
+                            "id": "STATUS",
+                            "user": "STATUS", 
+                            "type": "STATUS",
+                            "message": json.dumps(remove_websocket_list_dic(connected_clients)) 
+                        }
+
+                        # Khi client kết nối, gửi danh sách các client đang connected cho FE
+                        for joiner in connected_clients:
+                            try:
+                                await joiner["websocket"].send_text(f"{status}")
+                            except Exception as e:
+                                print("Send error:", e)
+
                     elif json_type == "CHAT":
                         client["message"] = json_message
                     else:
@@ -110,6 +118,16 @@ async def websocket_endpoint(websocket: WebSocket):
                     try:
                         await client["websocket"].send_text(f"{json.dumps(remove_websocket_dic(client_obj))}")
                         print("Sent message: '", client_obj ,"' to client:", websocket_id)
+
+                        start_thinking = {
+                            "id": "GAME_MASTER",
+                            "user": "GAME_MASTER", 
+                            "type": "THINKING",
+                            "message": "START"
+                        }
+
+                        await client["websocket"].send_text(f"{json.dumps(remove_websocket_dic(start_thinking))}")
+
                     except Exception as e:
                         print("Send error:", e)
                         closed_clients.append(websocket_id)          
@@ -121,7 +139,15 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 for client in connected_clients:
                     try:
-                        
+                        end_thinking = {
+                            "id": "GAME_MASTER",
+                            "user": "GAME_MASTER", 
+                            "type": "THINKING",
+                            "message": "END"
+                        }
+
+                        await client["websocket"].send_text(f"{json.dumps(remove_websocket_dic(end_thinking))}")
+
                         game_master_respone = {
                             "id": "GAME_MASTER",
                             "user": "GAME_MASTER", 
@@ -158,12 +184,28 @@ async def websocket_endpoint(websocket: WebSocket):
             None
         )
         
+        disconnected_clients["type"] = "LEFT"
+
         for client in connected_clients[:]:  # Duyệt qua bản copy để xóa an toàn
             if client["websocket"] == websocket:
                 connected_clients.remove(client)
             else:
-                await client["websocket"].send_text(f"Disconnected: {json.dumps(remove_websocket_dic(disconnected_clients))}")
+                await client["websocket"].send_text(f"{json.dumps(remove_websocket_dic(disconnected_clients))}")
             print(f"Client removed. Connected_clients: {(connected_clients)}")
+
+        status = {
+            "id": "STATUS",
+            "user": "STATUS", 
+            "type": "STATUS",
+            "message": json.dumps(remove_websocket_list_dic(connected_clients)) 
+        }
+
+        # Khi client kết nối, gửi danh sách các client đang connected cho FE
+        for joiner in connected_clients:
+            try:
+                await joiner["websocket"].send_text(f"{status}")
+            except Exception as e:
+                print("Send error:", e)
 
     except Exception as e:
         print("Other error:", e)
@@ -182,7 +224,6 @@ def remove_websocket_list_dic(data_list):
 def remove_websocket_dic(data):
     filtered_data = {k: v for k, v in data.items() if k != 'websocket'}
     return filtered_data
-    
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
