@@ -49,15 +49,24 @@ connected_clients = []
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     websocket_id = hex(id(websocket))
-    connected_clients.append(websocket)
-    print(f"Client connected: {(connected_clients)}")
 
-    # Khi client kết nối bắn list các client đang connected để FE load
+    # Khi client connect, tạo object client và add vào list
+    client_obj = {
+        "id": websocket_id,
+        "user": websocket_id,         # sẽ cập nhật khi nhận message đầu tiên
+        "type": "",
+        "message": "",
+        "websocket": websocket     # lưu luôn object websocket để gửi message
+    }
+    connected_clients.append(client_obj)
+    print(f"Client connected: {websocket_id}. Total: {len(connected_clients)}")
+
+    # Khi client kết nối, gửi danh sách các client đang connected cho FE
     for client in connected_clients:
         try:
-            await client.send_text(f"{connected_clients}")
+            await client["websocket"].send_text(f"{connected_clients}")
         except Exception as e:
-            print("Send error:", e)    
+            print("Send error:", e)
 
     try:
         while True:
@@ -65,56 +74,103 @@ async def websocket_endpoint(websocket: WebSocket):
             data_text = await websocket.receive_text()
             print(f"Server received: {data_text}")
 
-            # Convert JSON dạng {"user": "string", "type": "READY"/"CHAT", "message": "string"}
+            # Convert JSON dạng {"user": "string", "type": "JOIN"/"CHAT", "message": "string"}
             try:
                 data = json.loads(data_text)
             except Exception as e:
                 # Gửi thông báo lỗi về cho client vừa gửi
-                error_msg = f"JSON parse error: {str(e)}. Message must be like: {{'id': str, 'user': str, 'type': str, 'message': str}} (type: READY/CHAT)"
+                error_msg = f"JSON parse error: {str(e)}. Message must be like: {{'user': str, 'type': str, 'message': str}} (type: JOIN/CHAT)"
                 try:
                     await websocket.send_text(error_msg)
                 except Exception as err:
                     print("Send error to client:", err)
                 continue  # bỏ qua broadcast
 
-            json_user = data.get("user", "Unknown")
+            json_user = data.get("user", websocket_id)
             json_type = data.get("type", "Unknown")
             json_message = data.get("message", "")
-
-            # Xử lý theo từng type (switch-case dạng Python)
-            if json_type == "READY":  # ready
-                send_msg = f"[{json_user}] is ready: {json_message}"
-            elif json_type == "CHAT":  # chat
-                send_msg = f"[{json_user}] says: {json_message}"
-            else:
-                send_msg = f"[{json_user}] sent unknown type ({json_type}): {json_message}"
 
             # Broadcast cho tất cả client đang kết nối (chỉ gửi message này 1 lần)
             closed_clients = []
             for client in connected_clients:
-                try:
-                    await client.send_text(f"Broadcast: {send_msg}")
-                    print("Sent message: '", send_msg ,"' to client:", client)
-                except Exception as e:
-                    print("Send error:", e)
-                    closed_clients.append(client)
+                if client["id"] == websocket_id:
+                    client["user"] = json_user
+                    client["type"] = json_type
+                    if json_type == "JOIN":
+                        client["message"] = ""
+                    elif json_type == "CHAT":
+                        client["message"] = json_message
+                    else:
+                        client["message"] = f"Unknown type: {json_type}"
+
+            all_have_message = all(client["message"] != "" for client in connected_clients)
+            
+            if all_have_message:
+                for client in connected_clients:
+                    try:
+                        await client["websocket"].send_text(f"{client_obj}")
+                        print("Sent message: '", client_obj ,"' to client:", websocket_id)
+                    except Exception as e:
+                        print("Send error:", e)
+                        closed_clients.append(websocket_id)          
+
+                # call OpenAPI here
+                user_messages = [(client["user"], client["message"]) for client in connected_clients]
+                reply = await openai_service.chat(user_messages, "user-123")
+                # end call OpenAPI here
+
+                for client in connected_clients:
+                    try:
+                        
+                        game_master_respone = {
+                            "id": "GAME_MASTER",
+                            "user": "GAME_MASTER", 
+                            "type": "CHAT",
+                            "message": reply  # respone OPEN API
+                        }
+
+                        await client["websocket"].send_text(f"{game_master_respone}")
+                        client["message"] = ""
+                        print("Sent message: '", game_master_respone ,"' to client:", websocket_id)
+                    except Exception as e:
+                        print("Send error:", e)
+                        closed_clients.append(websocket_id)
+            else:
+                for client in connected_clients:
+                    try:
+                        await client["websocket"].send_text(f"{client_obj}")
+                        print("Sent message: '", client_obj ,"' to client:", websocket_id)
+                    except Exception as e:
+                        print("Send error:", e)
+                        closed_clients.append(websocket_id)            
 
             # Loại các client đã disconnect khỏi danh sách
-            for c in closed_clients:
-                if c in connected_clients:
-                    connected_clients.remove(c)
-            print(f"Server broadcasted: {send_msg}")
+            for close in closed_clients:  # closed_clients là list các object cần xóa
+                for client in connected_clients:
+                    if client["id"] == close["id"]:
+                        connected_clients.remove(client)
+            print(f"Server broadcasted: {json_message}")
 
     except WebSocketDisconnect:
-        print("Client disconnected")
-        if websocket in connected_clients:
-            connected_clients.remove(websocket)
-        print(f"Client removed. Connected_clients: {(connected_clients)}")
+        print(f"Client disconnected: {websocket_id}")
+        disconnected_clients = next(
+            (client for client in connected_clients if client["id"] == websocket_id),
+            None
+        )
+        
+        for client in connected_clients[:]:  # Duyệt qua bản copy để xóa an toàn
+            if client["websocket"] == websocket:
+                connected_clients.remove(client)
+            else:
+                await client["websocket"].send_text(f"Disconnected: {disconnected_clients}")
+            print(f"Client removed. Connected_clients: {(connected_clients)}")
 
     except Exception as e:
         print("Other error:", e)
-        if websocket in connected_clients:
-            connected_clients.remove(websocket)
+        for client in connected_clients[:]:  # Duyệt qua bản copy để xóa an toàn
+            if client["websocket"] == websocket:
+                connected_clients.remove(client)
+            print(f"Client removed. Connected_clients: {(connected_clients)}")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
