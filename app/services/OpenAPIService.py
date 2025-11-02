@@ -18,6 +18,31 @@ from app.DTOs.GameState import ChatContent, GameState
 from app.models.PlayerCharacter import PlayerCharacter
 from app.services.SqliteService import sqlite_service
 
+from app.services.CombatService import combat_service
+
+few_shot_examples = [
+    ("user", "Bắt đầu trò chơi"),
+    ("assistant", """
+        Hành trình của bạn diễn ra yên ả, nhưng hòn đảo hiện ra ngoài mũi tàu hứa hẹn những điều kỳ diệu hiếm có. 
+        Tảo biển lấp lánh dưới mặt nước với muôn vàn sắc màu rực rỡ, những tia nắng mặt trời xuyên qua bầu trời u ám 
+        chiếu sáng thảm cỏ xanh và những tảng đá bazan đen của hòn đảo. 
+        Tránh xa những mỏm đá nhô lên từ đại dương, con tàu của bạn chậm rãi tiến vào một bến cảng yên bình ở phía Bắc đảo. 
+        Trên bãi biển, bạn bắt gặp hai zombie đang lảo đảo tiến đến!
+    """),
+    ("user", "Tôi có thể làm gì trong combat"),
+    ("assistant", """
+        As a Fighter, you can perform this action: Attack - With your weapon: Greataxe (1D12) + Str Modifiers
+    """),
+    ("user", "Tôi tấn công con zombie gần nhất bằng thanh kiếm của mình."),
+    ("assistant", """
+        Bạn vung thanh kiếm về phía con zombie! Không khí rít lên khi lưỡi thép vẽ một đường vòng cung chết chóc. 
+        Bạn tung xúc xắc được 18 — trúng đòn! Gây (3+2)+3 = 8 sát thương!
+        Con zombie rít lên đau đớn, nhưng vẫn chưa gục ngã.
+        Đến lượt của zombie! Nó lao về phía bạn và cắn mạnh!
+        (D20 = 12) — Trúng đòn! Bạn nhận 3 sát thương!
+        Đến lượt bạn rồi, anh hùng!
+    """)
+]
 
 class OpenAIService:
     def __init__(
@@ -42,16 +67,23 @@ class OpenAIService:
             base_url=BASE_URL,
             api_key=SecretStr(
                 EMBEDDING_API_KEY if EMBEDDING_API_KEY is not None else ""
-            ),
+            )
         )
+        
+        self.tools = [
+            combat_service.moves_list
+        ]
+                
         self.llm_model = ChatOpenAI(
             model=LLM_MODEL_NAME if LLM_MODEL_NAME is not None else "",
             base_url=BASE_URL,
             api_key=SecretStr(LLM_API_KEY if LLM_API_KEY is not None else ""),
-            temperature=0.2,
+            temperature=0.8,
             timeout=300,
         )
-
+        
+        self.llm_with_tools = self.llm_model.bind_tools(self.tools)
+        
         # Base chain
         base_prompt = ChatPromptTemplate.from_messages(
             [
@@ -59,11 +91,12 @@ class OpenAIService:
                     "system",
                     "{system_instruction}",
                 ),
+                # *few_shot_examples,
                 ("assistant", "{extra_content}"),
                 ("user", "{input}"),
             ]
         )
-        self.base_chain = base_prompt | self.llm_model | StrOutputParser()
+        self.base_chain = base_prompt | self.llm_with_tools | StrOutputParser()
 
         # Summarizer chain
         # SUMMARIZER_MODEL = "VietAI/vit5-base-vietnews-summarization"
@@ -100,7 +133,7 @@ class OpenAIService:
         self.graph.add_node("ensure_system", self.ensure_system)
         self.graph.add_node("invoke_base_chain", self.invoke_base_chain)
         self.graph.add_node("summarize_chat", self.summarize_chat)
-
+        
         # ---- Connect the nodes ----
         self.graph.set_entry_point("ensure_system")
         self.graph.add_edge("ensure_system", "invoke_base_chain")
@@ -137,8 +170,11 @@ class OpenAIService:
         return await self.player_extractor_chain.ainvoke(character_data)
 
     async def invoke_base_chain(self, state: GameState) -> GameState:
+        print("invoke_base_chain")
         chat_history: list[ChatContent] = state.get("chat_history") or []
         sys_msg: str = state.get("sys_msg") or ""
+        user_input = state.get("input") or ""
+        
         if not sys_msg:
             return {
                 "chat_history": (
@@ -155,15 +191,11 @@ class OpenAIService:
                 {
                     "system_instruction": sys_msg,
                     "extra_content": f"""
-                        Bối cảnh: Lênh đênh trên một con thuyền gỗ, nhóm các bạn đang chuẩn bị cập bến vào hòn đảo Storm Wreck sau một chuyến đi dài.
-                        Phóng mắt ra tầm xa, các bạn có thể thấy xung quanh đảo có rất nhiều xác tàu chìm, tàu đắm, thậm chí là nghe thấy những âm thanh rùng rợn phát ra từ đó.
-                        Cuối cùng, các bạn cập bến ở trong một làng chài nhỏ tên là Saltmarsh, nơi mà những tin đồn về những con rồng và mối đe dọa từ hải tặc đang rình rập.
-                        Làng này nổi tiếng cạn kiệt vì nạn cướp biển ở vùng biển Stormwreck.
-                        Các bạn muốn làm gì?
+                        You are a DnD Dungeon Master running the campaign Dragon of Storm Wreck Isles
 
                         Người chơi hiện tại: {state.get("players") if state.get("players") else "Non"}
                     """,
-                    "input": state.get("input") or "",
+                    "input": user_input,
                 }
             )
         else:
@@ -175,19 +207,19 @@ class OpenAIService:
 
                         Người chơi hiện tại: {state.get("players") if state.get("players") else "Non"}
                     """,
-                    "input": state.get("input"),
+                    "input":user_input,
                 }
             )
         return {
             "chat_history": (
                     chat_history
                     + [
-                        ChatContent(role="user", content=state.get("input") or ""),
+                        ChatContent(role="user", content=user_input),
                         ChatContent(role="assistant", content=response),
                     ]
             )[-100:]
         }
-
+   
     async def summarize_chat(self, state: GameState) -> GameState:
         chat_history: list[ChatContent] = state.get("chat_history") or []
         if not chat_history:
