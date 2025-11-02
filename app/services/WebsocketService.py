@@ -71,7 +71,7 @@ class WebSocketService:
                             }
                             for joiner in self.connected_clients:
                                 try:
-                                    await joiner["websocket"].send_text(f"{status}")
+                                    await joiner["websocket"].send_text(f"{json.dumps(self.remove_websocket_dic(status))}")
                                 except Exception as e:
                                     print("Send error:", e)
                         elif json_type == "CHAT":
@@ -171,7 +171,7 @@ class WebSocketService:
         }
         for joiner in self.connected_clients:
             try:
-                await joiner["websocket"].send_text(f"{status}")
+                await joiner["websocket"].send_text(f"{json.dumps(self.remove_websocket_dic(status))}")
             except Exception as e:
                 print("Send error:", e)
 
