@@ -46,6 +46,9 @@ Before starting the application, run the ingestion script to:
 
 ```bash
 docker-compose run --rm api python -m ingestion.ingest_pdf
+Download data from here then extract and save to resource/srd
+https://drive.google.com/file/d/1MgnWYoBBfyo7E83mhD7T0hFne7dpEWoC/view?usp=sharing
+Remove after ingestion. Don't commit the files.
 
 (old)
 docker-compose run --rm api python ingestion/ingestion_script.py all
