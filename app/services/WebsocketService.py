@@ -30,7 +30,6 @@ class WebSocketService:
             "websocket": websocket
         }
         self.connected_clients.append(client_obj)
-        print(f"Client connected: {websocket_id}. Total: {len(self.connected_clients)}")
         return client_obj
 
     async def handle_receive(self, websocket, client_obj, openai_service):
@@ -55,91 +54,92 @@ class WebSocketService:
                 json_type = data.get("type", "Unknown")
                 json_message = data.get("message", "")
 
-                closed_clients = []
-                # Broadcast logic
-                for client in self.connected_clients:
-                    if client["id"] == websocket_id:
-                        client["user"] = json_user
-                        client["type"] = json_type
-                        if json_type == "JOIN":
-                            client["message"] = ""
-                            status = {
-                                "id": "STATUS",
-                                "user": "STATUS",
-                                "type": "STATUS",
-                                "message": json.dumps(self.remove_websocket_list_dic(self.connected_clients))
-                            }
-                            for joiner in self.connected_clients:
-                                try:
-                                    await joiner["websocket"].send_text(f"{json.dumps(self.remove_websocket_dic(status))}")
-                                except Exception as e:
-                                    print("Send error:", e)
-                        elif json_type == "CHAT":
-                            client["message"] = json_message
-                        else:
-                            client["message"] = f"Unknown type: {json_type}"
-
-                all_have_message = all(client["message"] != "" for client in self.connected_clients)
-
-                if all_have_message:
+                if json_type == "PING":
+                    print(f"PING SERVER")
+                else:    
+                    closed_clients = []
+                    # Broadcast logic
                     for client in self.connected_clients:
-                        try:
-                            await client["websocket"].send_text(f"{json.dumps(self.remove_websocket_dic(client_obj))}")
-                            print("Sent message: '", client_obj, "' to client:", websocket_id)
-                            start_thinking = {
-                                "id": "GAME_MASTER",
-                                "user": "GAME_MASTER",
-                                "type": "THINKING",
-                                "message": "START"
-                            }
-                            await client["websocket"].send_text(f"{json.dumps(self.remove_websocket_dic(start_thinking))}")
-                        except Exception as e:
-                            print("Send error:", e)
-                            closed_clients.append(websocket_id)
+                        if client["id"] == websocket_id:
+                            client["user"] = json_user
+                            client["type"] = json_type
+                            if json_type == "JOIN":
+                                client["message"] = ""
+                                status = {
+                                    "id": "STATUS",
+                                    "user": "STATUS",
+                                    "type": "STATUS",
+                                    "message": json.dumps(self.remove_websocket_list_dic(self.connected_clients))
+                                }
+                                for joiner in self.connected_clients:
+                                    try:
+                                        await joiner["websocket"].send_text(f"{json.dumps(self.remove_websocket_dic(status))}")
+                                    except Exception as e:
+                                        print("Send error:", e)
+                            elif json_type == "CHAT":
+                                client["message"] = json_message
+                            else:
+                                client["message"] = f"Unknown type: {json_type}"
 
-                    # call OpenAPI here
-                    user_messages = [(client["user"], client["message"]) for client in self.connected_clients]
-                    combined_text = "\n".join(f"{user}: {msg}\n" for user, msg in user_messages)
-                    reply = await openai_service.chat(combined_text, "user-123")
-                    # end call OpenAPI here
+                    all_have_message = all(client["message"] != "" for client in self.connected_clients)
 
-                    for client in self.connected_clients:
-                        try:
-                            end_thinking = {
-                                "id": "GAME_MASTER",
-                                "user": "GAME_MASTER",
-                                "type": "THINKING",
-                                "message": "END"
-                            }
-                            await client["websocket"].send_text(f"{json.dumps(self.remove_websocket_dic(end_thinking))}")
+                    if all_have_message:
+                        for client in self.connected_clients:
+                            try:
+                                await client["websocket"].send_text(f"{json.dumps(self.remove_websocket_dic(client_obj))}")
+                                print("Sent message: '", client_obj, "' to client:", websocket_id)
+                                start_thinking = {
+                                    "id": "GAME_MASTER",
+                                    "user": "GAME_MASTER",
+                                    "type": "THINKING",
+                                    "message": "START"
+                                }
+                                await client["websocket"].send_text(f"{json.dumps(self.remove_websocket_dic(start_thinking))}")
+                            except Exception as e:
+                                print("Send error:", e)
+                                closed_clients.append(websocket_id)
 
-                            game_master_respone = {
-                                "id": "GAME_MASTER",
-                                "user": "GAME_MASTER",
-                                "type": "CHAT",
-                                "message": reply
-                            }
-                            await client["websocket"].send_text(f"{json.dumps(self.remove_websocket_dic(game_master_respone))}")
-                            client["message"] = ""
-                            print("Sent message: '", game_master_respone, "' to client:", websocket_id)
-                        except Exception as e:
-                            print("Send error:", e)
-                            closed_clients.append(websocket_id)
-                else:
-                    for client in self.connected_clients:
-                        try:
-                            await client["websocket"].send_text(f"{json.dumps(self.remove_websocket_dic(client_obj))}")
-                            print("Sent message: '", client_obj, "' to client:", websocket_id)
-                        except Exception as e:
-                            print("Send error:", e)
-                            closed_clients.append(websocket_id)
+                        # call OpenAPI here
+                        user_messages = [(client["user"], client["message"]) for client in self.connected_clients]
+                        reply = await openai_service.chat(user_messages, "user-123")
+                        # end call OpenAPI here
 
-                # Remove disconnected clients
-                for close in closed_clients:
-                    for client in self.connected_clients:
-                        if client["id"] == close:
-                            self.connected_clients.remove(client)
-                print(f"Server broadcasted: {json_message}")
+                        for client in self.connected_clients:
+                            try:
+                                end_thinking = {
+                                    "id": "GAME_MASTER",
+                                    "user": "GAME_MASTER",
+                                    "type": "THINKING",
+                                    "message": "END"
+                                }
+                                await client["websocket"].send_text(f"{json.dumps(self.remove_websocket_dic(end_thinking))}")
+
+                                game_master_respone = {
+                                    "id": "GAME_MASTER",
+                                    "user": "GAME_MASTER",
+                                    "type": "CHAT",
+                                    "message": reply
+                                }
+                                await client["websocket"].send_text(f"{json.dumps(self.remove_websocket_dic(game_master_respone))}")
+                                client["message"] = ""
+                                print("Sent message: '", game_master_respone, "' to client:", websocket_id)
+                            except Exception as e:
+                                print("Send error:", e)
+                                closed_clients.append(websocket_id)
+                    else:
+                        for client in self.connected_clients:
+                            try:
+                                await client["websocket"].send_text(f"{json.dumps(self.remove_websocket_dic(client_obj))}")
+                                print("Sent message: '", client_obj, "' to client:", websocket_id)
+                            except Exception as e:
+                                print("Send error:", e)
+                                closed_clients.append(websocket_id)
+
+                    # Remove disconnected clients
+                    for close in closed_clients:
+                        for client in self.connected_clients:
+                            if client["id"] == close:
+                                self.connected_clients.remove(client)
         except WebSocketDisconnect:
             await self.handle_disconnect(websocket, websocket_id)
         except Exception as e:
@@ -183,7 +183,6 @@ class WebSocketService:
         try:
             async with websockets.connect(WS_ENDPOINT) as ws:
                 print(f"Connected to {WS_ENDPOINT}")
-                # Gửi message đúng 1 lần
                 await ws.send(message)
                 print(f"Client sent: {message}")
         except Exception as e:

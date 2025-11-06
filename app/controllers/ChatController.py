@@ -14,11 +14,21 @@ async def send_message(request: ChatRequest):
     # Send message to server
     await ws_service.client_send_message(reply)
         
+    reply = await openai_service.chat(request.message, "user-123")
+
+    # Send message to server
+    await ws_service.client_send_message(reply)
+        
     return {"reply": reply}
 
 
 @router.post("/start")
 async def start_game():
+    reply = await openai_service.chat("Bắt đầu trò chơi", "user-123")
+
+    # Send message to server
+    await ws_service.client_send_message(reply)
+
     reply = await openai_service.chat("Bắt đầu trò chơi", "user-123")
 
     # Send message to server
