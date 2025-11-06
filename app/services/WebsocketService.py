@@ -101,7 +101,8 @@ class WebSocketService:
 
                         # call OpenAPI here
                         user_messages = [(client["user"], client["message"]) for client in self.connected_clients]
-                        reply = await openai_service.chat(user_messages, "user-123")
+                        combined_text = "\n".join(f"{user}: {msg}\n" for user, msg in user_messages)
+                        reply = await openai_service.chat(combined_text, "user-123")
                         # end call OpenAPI here
 
                         for client in self.connected_clients:

@@ -3,11 +3,6 @@ from sqlite3 import OperationalError
 
 import uvicorn
 from fastapi import FastAPI, WebSocket
-from contextlib import asynccontextmanager
-from sqlite3 import OperationalError
-
-import uvicorn
-from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from app.controllers import ChatController
 from app.services.ChatService import openai_service
@@ -47,10 +42,6 @@ app.include_router(ChatController.router, prefix="/api/v1")
 def root():
     return {"message": "DnD AI GM is running"}
 
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    client_obj = await ws_service.handle_connect(websocket)
-    await ws_service.handle_receive(websocket, client_obj, openai_service)
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     client_obj = await ws_service.handle_connect(websocket)
