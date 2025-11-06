@@ -45,6 +45,12 @@ Before starting the application, run the ingestion script to:
 ### Using Docker (Recommended):
 
 ```bash
+docker-compose run --rm api python -m ingestion.ingest_pdf
+Download data from here then extract and save to resource/srd
+https://drive.google.com/file/d/1MgnWYoBBfyo7E83mhD7T0hFne7dpEWoC/view?usp=sharing
+Remove after ingestion. Don't commit the files.
+
+(old)
 docker-compose run --rm api python ingestion/ingestion_script.py all
 ```
 
@@ -54,10 +60,10 @@ docker-compose run --rm api python ingestion/ingestion_script.py all
 python ingestion/ingestion_script.py all
 ```
 
-This step:
-- ✅ Ingests 319 spells from CSV into SQLite
-- ✅ Ingests 12 classes from CSV into SQLite
-- ✅ Uploads pre-generated embeddings to ChromaDB for semantic search
+This step ingest data into ChromaDB
+- ✅ All monster manual data
+- ✅ All player related data, including classes, races, skills, traits, items, spells
+- ✅ The main story, Lost Mines of Phandelver
 
 **Note**: This only needs to be run once (or when you want to refresh the data).
 
@@ -129,6 +135,13 @@ python -m venv .venv
 
 pip install --upgrade pip
 pip install -r requirements.txt
+
+# Run ingestion first
+```
+python ingestion/ingestion_script.py all
+
+# Then start the server
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir app
 
 # Run ingestion first
 ```

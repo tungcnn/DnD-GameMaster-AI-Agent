@@ -1,10 +1,9 @@
 from fastapi import APIRouter, HTTPException
 from app.models.ChatRequest import ChatRequest
-from app.services.OpenAPIService import openai_service
+from app.services.ChatService import openai_service
 from app.services.WebsocketService import ws_service
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
-
 
 @router.post("/message")
 async def send_message(request: ChatRequest):
