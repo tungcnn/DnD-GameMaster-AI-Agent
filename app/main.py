@@ -4,12 +4,9 @@ from sqlite3 import OperationalError
 import uvicorn
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
-import asyncio
 from app.controllers import ChatController
-from app.services.OpenAPIService import openai_service
+from app.services.ChatService import openai_service
 from app.services.SqliteService import sqlite_service
-import websockets
-import json
 from app.services.WebsocketService import ws_service
 
 @asynccontextmanager
@@ -17,8 +14,8 @@ async def lifespan(app: FastAPI):
     # --- Startup ---
     try:
         await sqlite_service.init()
-        openai_service.init_openai_service()
-        print("Game master initialized")
+        if openai_service.dnd_graph:
+            print("Game master initialized")
     except OperationalError as e:
         print(e)
 

@@ -12,7 +12,7 @@ from typing import List, Dict, Any, Optional
 sys.path.append(str(Path(__file__).parent.parent))
 
 from app.services.ChromaService import ChromaService
-from app.services.OpenAPIService import openai_service
+from app.services.ChatService import openai_service
 
 
 class ChromaIngestion:

@@ -1,16 +1,9 @@
-from typing import TypedDict
+from typing import TypedDict, Annotated
+from langgraph.graph.message import add_messages
+from langchain_core.messages import BaseMessage
 
 from app.models.PlayerCharacter import PlayerCharacter
 
-
-class ChatContent(TypedDict):
-    role: str
-    content: str
-
-
 class GameState(TypedDict, total=False):
-    chat_history: list[ChatContent]
-    summary: str
-    input: str
     players: list[PlayerCharacter]
-    sys_msg: str
+    messages: Annotated[list[BaseMessage], add_messages]
