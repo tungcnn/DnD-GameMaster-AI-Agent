@@ -3,7 +3,7 @@ from langgraph.graph import StateGraph, START
 from langchain_openai import ChatOpenAI
 from app.config.LoadAppConfig import LoadAppConfig
 from app.DTOs.GameState import GameState
-from app.services.RAGTool import monster_query_tool, player_query_tool, phandelverstory_query_tool
+from app.services.RAGTool import monster_query_tool, player_query_tool, phandelverstory_query_tool, handle_skill_check_tool, combat_tool, ask_skill_check_tool
 from app.services.ToolNode import BasicToolNode, route_tools
 from app.services.SummarizerNode import summarize_history_node, check_for_summarization
 from app.services.SqliteService import sqlite_service
@@ -30,7 +30,10 @@ def build_graph():
     tools = [
         monster_query_tool,
         player_query_tool,
-        phandelverstory_query_tool
+        phandelverstory_query_tool,
+        handle_skill_check_tool,
+        combat_tool,
+        ask_skill_check_tool
     ]
 
     dnd_llm_with_tools = dnd_llm.bind_tools(tools)
