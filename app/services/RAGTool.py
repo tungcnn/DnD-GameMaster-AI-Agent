@@ -131,4 +131,83 @@ def phandelverstory_query_tool(query: str) -> str:
     docs = rag_tool.vectordb.similarity_search(query, k=rag_tool.k)
     return "\n\n".join([doc.page_content for doc in docs])
 
+@tool
+def ask_skill_check_tool(skill: str, difficulty: str, player_dice: str, status: str, description: str) -> str:
+    """
+    Handle when player enter a prompt that might require a skill check
+    Come up with a fitting difficulty class to the situation, 
+    and ask the user to roll for this skill check.
+    Don't show the difficulty to the player, it's for the AI to keep track only (In brackets)
+    Args:
+    difficulty (str): The difficulty of the skill check the AI came up with
+    skill (str): The skill in check. Could be animal handling, investigation, acrobatic, strength, etc
+    Returns:
+        str: Ask the user to roll for skill check
+    Example:
+        >>> To search the horse's body, give me an investigation roll (Difficulty 11)
+        >>> Give me a perception check, let's see if you can identify the hidden threat 
+        in the jungle!
+    """
+    
+    return "Ask player to roll skill check"
 
+@tool
+def handle_skill_check_tool(skill: str, difficulty: str, player_dice: str, status: str, description: str) -> str:
+    """
+    Verify the user's dice roll against the difficulty of the skill check.
+    Args:
+    difficulty (str): The difficulty of the skill check the AI came up with
+    player_dice(str): The dice roll result of the player
+    skill (str): The skill in check. Could be animal handling, investigation, acrobatic, strength, etc
+    status(str): The status of the skill check, either passed or failed.
+    description(str): The description of the result of the skill check
+    Returns:
+        str: The description of the skill check results
+    Example:
+        >>> For this strength check of difficulty 15, you failed with a roll of 12!
+        You bend down and try to lift the horse's body with all your strength!
+        The horse didn't budge at all due to your noodle hands. HAHA! What else can you do?
+        >>> For this investigation check of difficulty 9, you passed with a roll of 15!
+        You searched horse's body throughly using your experience in hunting.
+        With your keen senses, you noticed that the horses have been dead for a while 
+        and were dragged here as a bait. This is a trap, you think to yourself. What do you do now?
+    """
+    
+    return f"""For this {skill} check of difficulty {difficulty}, you {status} with a roll of {player_dice}!
+        {description}
+    """
+
+@tool
+def combat_tool(damage: str, hit_status: str, description: str) -> str:
+    """
+    Handle when player enter a prompt while in combat
+    Deny all prompts unrelated to the combat. 
+    Calculate the hit against the target's AC, and calculate the damage if it's a hit.
+    Ask the player for their stats if you don't know. 
+    If the attack requires a saving throw, such as Fireball, 
+    roll the saving throw for the target yourselves.
+    Don't show players the content within the brackets, such as (Goblin has 9HP left). 
+    Content within bracket is only for the AI to track combat stats.
+    Args:
+    damage (str): The damage of the attack
+    hit_status(str): Whether the attack land
+    description (str): The description of the result of the attack
+    Returns:
+        str: The description of the skill check results
+    Example:
+        >>> You bend your arms and slash the Golbin with your sword. The edge barely missed the 
+        Goblin's neck, dealing no damage! (Roll of 9 against 10 AC)
+        >>> You aim your bow at the target and release the arrow. It's a direct hit!
+        The Goblin loses its balance and stumbled back, angrier than before.
+        It took 6 piercing damage. (The goblin has 4 HP left)
+        >>> The goblin dashes towards you and tries to club you in the head! What is your AC?
+        >>> With an AC of 13, you expertly dodged the goblin's club!
+        >>> With an AC of 13, you couldn't dodge the blow from the Goblin. 
+        The thich club made from ancient wood bangs your head directly, you took 6 bludgeoning damage!
+        >>> The 2 goblins try to dodge your Fireball center of explosion!
+         Goblin 1 manages to dodge with a high enough dex roll, dodging out of the way
+         with a half burnt leg. Taking only half damage (6 HP left)
+         Goblin 2 was too slow, and it took full damage! He burns in agony! (1HP left)
+    """
+    
+    return "Done"
