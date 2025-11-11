@@ -38,26 +38,26 @@ docker build -t dnd-gamemaster .
 
 ## 📥 4. Run Data Ingestion (First Time Setup)
 
-Before starting the application, run the ingestion script to:
-- Populate SQLite database with spells and classes
-- Upload embeddings to ChromaDB
+Before starting the application, run the ingestion script to ingest ChromaDB with DnD content
+-  The player's hand book (Races, Classes, Items, Spells)
+-  Monster's manual (monsters stat blocks)
+-  The main story The Lost Mines of Phandelver (60 pages)
+
+Download data from this link then extract and save to resource/srd
+
+https://drive.google.com/file/d/1MgnWYoBBfyo7E83mhD7T0hFne7dpEWoC/view?usp=sharing
+
+Remove after ingestion. Don't commit the files to git.
 
 ### Using Docker (Recommended):
-
 ```bash
 docker-compose run --rm api python -m ingestion.ingest_pdf
-Download data from here then extract and save to resource/srd
-https://drive.google.com/file/d/1MgnWYoBBfyo7E83mhD7T0hFne7dpEWoC/view?usp=sharing
-Remove after ingestion. Don't commit the files.
-
-(old)
-docker-compose run --rm api python ingestion/ingestion_script.py all
 ```
 
 ### Without Docker:
 
 ```bash
-python ingestion/ingestion_script.py all
+python -m ingestion.ingest_pdf
 ```
 
 This step ingest data into ChromaDB
@@ -107,7 +107,7 @@ docker build -t dnd-gamemaster .
 docker logs -f dnd-gamemaster
 
 # Re-run ingestion (to refresh data)
-docker-compose run --rm api python ingestion/ingestion_script.py all
+docker-compose run --rm api python -m ingestion.ingest_pdf
 
 # Clean up unused Docker images and containers
 docker system prune -f
@@ -138,14 +138,7 @@ pip install -r requirements.txt
 
 # Run ingestion first
 ```
-python ingestion/ingestion_script.py all
-
-# Then start the server
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir app
-
-# Run ingestion first
-```
-python ingestion/ingestion_script.py all
+python -m ingestion.ingest_pdf
 
 # Then start the server
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir app
